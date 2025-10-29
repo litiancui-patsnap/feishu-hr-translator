@@ -1,0 +1,52 @@
+# Environment configuration
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Virtual environments
+.venv/
+venv/
+
+# Python caches and build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+dist/
+build/
+*.egg-info/
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+logs/
+tmp/
+
+# Local data outputs
+data/okr_cache.json
+data/reports_slim.csv
+data/report_task_cache.json
+okr_raw.json
+
+# Secrets and credentials
+secrets/
+*.pem
+*.key
+*.pfx
+*.cer
+
