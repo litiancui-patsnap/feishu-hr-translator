@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import time as dt_time
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Optional
@@ -71,6 +72,15 @@ class Settings(BaseSettings):
         default="./data/report_task_cache.json", alias="FEISHU_REPORT_CACHE_PATH"
     )
 
+    auto_sync_enabled: bool = Field(default=False, alias="AUTO_SYNC_ENABLED")
+    auto_sync_time: str = Field(default="02:00", alias="AUTO_SYNC_TIME")
+    auto_sync_lookback_hours: int = Field(
+        default=24, alias="AUTO_SYNC_LOOKBACK_HOURS"
+    )
+    auto_sync_run_on_start: bool = Field(
+        default=False, alias="AUTO_SYNC_RUN_ON_START"
+    )
+
     request_timeout: float = Field(default=10.0, alias="REQUEST_TIMEOUT_SECONDS")
     http_trust_env: bool = Field(default=False, alias="HTTP_TRUST_ENV")
 
@@ -90,6 +100,21 @@ class Settings(BaseSettings):
     @classmethod
     def _expand_path(cls, value: str) -> str:
         return str(Path(value).expanduser())
+
+    @field_validator("auto_sync_time")
+    @classmethod
+    def _validate_auto_sync_time(cls, value: str) -> str:
+        parts = value.split(":")
+        if len(parts) != 2:
+            raise ValueError("AUTO_SYNC_TIME must be in HH:MM 24-hour format.")
+        hour, minute = parts
+        if not (hour.isdigit() and minute.isdigit()):
+            raise ValueError("AUTO_SYNC_TIME must be numeric HH:MM.")
+        hour_int = int(hour)
+        minute_int = int(minute)
+        if not (0 <= hour_int <= 23 and 0 <= minute_int <= 59):
+            raise ValueError("AUTO_SYNC_TIME must be a valid time of day.")
+        return f"{hour_int:02d}:{minute_int:02d}"
 
     @model_validator(mode="after")
     def _adjust_qwen_mode(self) -> "Settings":
@@ -112,6 +137,10 @@ class Settings(BaseSettings):
             rule_id, period_type = raw.split(":", 1)
             rules.append((rule_id.strip(), period_type.strip().lower()))
         return rules
+
+    def get_auto_sync_time(self) -> dt_time:
+        hour_str, minute_str = self.auto_sync_time.split(":")
+        return dt_time(hour=int(hour_str), minute=int(minute_str))
 
 
 def load_settings() -> Settings:

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime
+from contextlib import suppress
+from datetime import datetime, timedelta, time as dt_time
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException, Request, status
@@ -10,8 +11,10 @@ from fastapi import FastAPI, HTTPException, Request, status
 from .ai.qwen import QwenClient
 from .config import Settings, get_settings
 from .feishu.api_client import FeishuAPIClient
+from .feishu.report_fetch import fetch_reports
 from .feishu.webhook import FeishuWebhookHandler
 from .okr.source import OKRSource, build_okr_source
+from .okr.sync_job import sync_okrs
 from .schemas import FeishuWebhookEnvelope
 from .storage import build_storage
 from .storage.base import StorageDriver
@@ -54,6 +57,7 @@ def create_app(
     )
 
     app = FastAPI(title="Feishu HR Translator")
+    app.state.auto_sync_task: Optional[asyncio.Task[None]] = None
 
     @app.get("/healthz")
     async def healthz() -> dict[str, bool]:
@@ -93,6 +97,70 @@ def create_app(
     @app.on_event("startup")
     async def on_startup() -> None:
         logger.info("app_startup", extra={"storage_driver": settings.storage_driver})
+        if settings.auto_sync_enabled:
+            lookback_hours = max(1, settings.auto_sync_lookback_hours)
+            auto_sync_time = settings.get_auto_sync_time()
+
+            async def _run_auto_sync_once(trigger: str) -> None:
+                logger.info(
+                    "auto_sync_run_start",
+                    extra={
+                        "trigger": trigger,
+                        "lookback_hours": lookback_hours,
+                        "run_time": settings.auto_sync_time,
+                    },
+                )
+                try:
+                    await sync_okrs()
+                    logger.info("auto_sync_stage_complete", extra={"stage": "sync_okrs"})
+                except Exception:
+                    logger.exception(
+                        "auto_sync_stage_failed", extra={"stage": "sync_okrs"}
+                    )
+                try:
+                    end_ts = int(datetime.utcnow().timestamp())
+                    start_ts = end_ts - lookback_hours * 3600
+                    await fetch_reports(start_ts=start_ts, end_ts=end_ts)
+                    logger.info(
+                        "auto_sync_stage_complete", extra={"stage": "report_fetch"}
+                    )
+                except Exception:
+                    logger.exception(
+                        "auto_sync_stage_failed", extra={"stage": "report_fetch"}
+                    )
+
+            async def _auto_sync_loop() -> None:
+                while True:
+                    wait_seconds = _seconds_until_next_run(auto_sync_time)
+                    logger.info(
+                        "auto_sync_waiting",
+                        extra={
+                            "sleep_seconds": int(wait_seconds),
+                            "run_time": settings.auto_sync_time,
+                        },
+                    )
+                    await asyncio.sleep(wait_seconds)
+                    await _run_auto_sync_once("scheduled")
+
+            app.state.auto_sync_task = asyncio.create_task(_auto_sync_loop())
+            logger.info(
+                "auto_sync_enabled",
+                extra={
+                    "run_time": settings.auto_sync_time,
+                    "lookback_hours": lookback_hours,
+                    "run_on_start": settings.auto_sync_run_on_start,
+                },
+            )
+            if settings.auto_sync_run_on_start:
+                asyncio.create_task(_run_auto_sync_once("startup"))
+
+    @app.on_event("shutdown")
+    async def on_shutdown() -> None:
+        task = getattr(app.state, "auto_sync_task", None)
+        if task:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
 
     return app
 
@@ -147,3 +215,12 @@ def _normalize_webhook_payload(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Unsupported payload format for Feishu webhook.",
     )
+
+
+def _seconds_until_next_run(target_time: dt_time) -> float:
+    now = datetime.now()
+    target = datetime.combine(now.date(), target_time)
+    if target <= now:
+        target += timedelta(days=1)
+    seconds = (target - now).total_seconds()
+    return max(1.0, seconds)
