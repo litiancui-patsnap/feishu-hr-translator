@@ -42,13 +42,17 @@ USER_PROMPT_TEMPLATE = """
   "okr_alignment": {
     "hit_objectives": ["O1","O2"],
     "hit_krs": ["KR1","KR2"],
-    "gaps": ["未覆盖或落后KR"],
+    "gaps": ["未覆盖或落后KR的通俗描述"],
     "confidence": 0.0
   },
   "next_actions": ["可执行的下一步1","下一步2"],
   "risk_level": "low|medium|high"
 }
-约束：不用专业黑话；如未提及OKR，也要基于文本给出最可能关联的O/KR并标注低置信度。
+约束：
+1. 所有字段（包括 gaps、hit_objectives、hit_krs）都必须用HR能理解的通俗语言，避免专业术语（如TDD、BDD、API等）；
+2. 对于 gaps 字段，不要输出 "O2KR1: xxx" 这样的格式，而要描述具体的业务目标，例如 "测试流程优化进展缓慢" 而不是 "TDD与BDD模式研究尚未完成"；
+3. 如果必须保留技术词汇，请用括号补充通俗解释，例如 "自动化测试框架（让程序自动检测错误的工具）搭建延期"；
+4. 如未提及OKR，也要基于文本给出最可能关联的O/KR并标注低置信度。
 """.strip()
 
 
