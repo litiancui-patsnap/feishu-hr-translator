@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(nul)",
+      "Bash(dir:*)",
+      "Bash(docker --version:*)",
+      "Bash(docker-compose:*)",
+      "Bash(test:*)",
+      "Bash(curl:*)",
+      "Bash(find:*)",
+      "Bash(python:*)",
+      "Bash(set DASHSCOPE_API_KEY=sk-083cafe91d0843fd9c4e899de59878f4)",
+      "Bash(if [ -f \"nul\" ])",
+      "Bash(then echo \"nul exists\")",
+      "Bash(cat:*)",
+      "Bash(fi:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

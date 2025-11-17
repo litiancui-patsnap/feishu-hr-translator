@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "llm-translator": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mcp_servers.llm_translator"
+      ],
+      "env": {
+        "DASHSCOPE_API_KEY": "your_api_key_here",
+        "QWEN_MODEL": "qwen-plus",
+        "QWEN_API_MODE": "text",
+        "REQUEST_TIMEOUT_SECONDS": "30"
+      },
+      "description": "LLM-powered content translation server for converting technical reports to HR-friendly language",
+      "version": "0.1.0"
+    }
+  }
+}
