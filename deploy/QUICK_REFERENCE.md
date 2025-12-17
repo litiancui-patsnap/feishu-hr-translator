@@ -3,7 +3,7 @@
 ## 服务管理
 
 ```bash
-cd /opt/feishu-hr-translator/deploy
+cd ~/feishu-hr-translator/deploy
 
 # 启动服务
 docker-compose -f docker-compose.production.yml up -d
@@ -11,12 +11,20 @@ docker-compose -f docker-compose.production.yml up -d
 # 停止服务
 docker-compose -f docker-compose.production.yml down
 
-# 重启服务
+# 重启服务（不重新加载 .env）
 docker-compose -f docker-compose.production.yml restart
+
+# ⚠️ 修改 .env 后重启（重新加载环境变量）
+docker-compose -f docker-compose.production.yml down
+docker-compose -f docker-compose.production.yml up -d
 
 # 查看状态
 docker-compose -f docker-compose.production.yml ps
 ```
+
+**重要提醒**：
+- `restart` 命令不会重新加载 `.env` 文件！
+- 修改环境变量后必须使用 `down` + `up`
 
 ## 日志查看
 
@@ -97,6 +105,53 @@ netstat -tlnp | grep :80
 
 # 查看环境变量
 docker exec feishu-hr-backend env | grep FEISHU
+
+# 检查 data 目录权限（如果登录失败 500 错误）
+ls -la ~/feishu-hr-translator/data/
+sudo chown -R 1000:1000 ~/feishu-hr-translator/data/
+```
+
+## 常见问题快速修复
+
+```bash
+# 问题1：环境变量修改后不生效
+cd ~/feishu-hr-translator/deploy
+docker-compose -f docker-compose.production.yml down
+docker-compose -f docker-compose.production.yml up -d
+
+# 问题2：登录失败 500 错误（数据库权限）
+sudo chown -R 1000:1000 ~/feishu-hr-translator/data/
+docker-compose -f docker-compose.production.yml restart backend
+
+# 问题3：完全清理后重建
+docker-compose -f docker-compose.production.yml down -v
+docker rm -f feishu-hr-backend feishu-hr-frontend 2>/dev/null || true
+docker rmi feishu-hr-translator_backend feishu-hr-translator_frontend 2>/dev/null || true
+docker builder prune -f
+docker-compose -f docker-compose.production.yml build --no-cache
+docker-compose -f docker-compose.production.yml up -d
+
+# 问题4：测试 Webhook 端点
+curl -X POST http://localhost:8888/webhook/feishu \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"test","user_name":"测试","text":"测试内容"}'
+
+# 问题5：验证环境变量是否加载
+docker exec feishu-hr-backend env | grep AUTO_SYNC_TIME
+docker exec feishu-hr-backend env | grep WEB_PORT
+```
+
+## 访问地址
+
+```bash
+# Web UI
+http://服务器IP:8888
+
+# 健康检查
+http://服务器IP:8888/healthz
+
+# Webhook 端点（飞书机器人配置）
+http://服务器IP:8888/webhook/feishu
 ```
 
 ## 清理空间

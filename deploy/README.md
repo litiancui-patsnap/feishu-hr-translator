@@ -38,10 +38,10 @@
 ### 2. 部署步骤
 
 ```bash
-# 克隆或上传代码到服务器
-cd /opt/feishu-hr-translator
+# 克隆或上传代码到服务器（推荐使用用户主目录）
+cd ~/feishu-hr-translator
 
-# 配置环境变量
+# 配置环境变量（必须在项目根目录）
 cp deploy/.env.production .env
 vim .env  # 修改必要的配置项
 
@@ -50,6 +50,11 @@ cd deploy
 chmod +x *.sh
 ./deploy.sh
 ```
+
+**重要说明**：
+- 环境变量文件必须放在**项目根目录** `~/feishu-hr-translator/.env`
+- `deploy/.env` 仅用于 docker-compose 变量替换（如 WEB_PORT）
+- 默认Web端口是 **8888**（可通过 WEB_PORT 修改）
 
 ### 3. 验证部署
 
@@ -75,23 +80,25 @@ curl http://localhost
 ```
 用户浏览器
     ↓
-[Nginx (Frontend Container) :80]
+[Nginx (Frontend Container) :8888]
     ├─ 静态文件服务 (React SPA)
-    └─ API 反向代理 → [Backend Container :8080]
-                            ↓
-                        FastAPI 应用
-                            ↓
-                    数据持久化 (data/ 目录)
+    ├─ API 反向代理 (/api/*) → [Backend Container :8080]
+    └─ Webhook 代理 (/webhook/*) → [Backend Container :8080]
+                                        ↓
+                                    FastAPI 应用
+                                        ↓
+                                数据持久化 (data/ 目录)
 ```
 
 **容器说明：**
-- **feishu-hr-frontend**: Nginx + React 构建产物
-- **feishu-hr-backend**: Python + FastAPI + Uvicorn
+- **feishu-hr-frontend**: Nginx + React 构建产物（提供静态文件和反向代理）
+- **feishu-hr-backend**: Python + FastAPI + Uvicorn（Web API + 飞书 Webhook 处理）
 
 **网络：**
 - 前后端在同一 Docker 网络 (`app-network`) 中通信
-- 仅前端容器暴露 80 端口到宿主机
+- 仅前端容器暴露 8888 端口（可配置）到宿主机
 - 后端容器不直接暴露端口，仅通过 Nginx 反向代理访问
+- Webhook 请求通过 Nginx 转发到 backend 的 `/webhook/` 路由
 
 ---
 
@@ -142,8 +149,15 @@ docker-compose -f docker-compose.production.yml logs -f
 
 ### 重启服务
 
+**注意**：如果修改了 `.env` 文件，必须使用 `down` + `up` 而不是 `restart`！
+
 ```bash
+# 常规重启（不重新加载 .env）
 docker-compose -f docker-compose.production.yml restart
+
+# 重新加载环境变量（修改 .env 后必须使用）
+docker-compose -f docker-compose.production.yml down
+docker-compose -f docker-compose.production.yml up -d
 ```
 
 ### 停止服务
@@ -187,8 +201,14 @@ tar -czf backup-$(date +%Y%m%d).tar.gz ../data/
 
 | 服务 | 容器内端口 | 宿主机端口 | 说明 |
 |------|-----------|-----------|------|
-| Frontend (Nginx) | 80 | 80 (可配置 WEB_PORT) | Web UI 访问 |
+| Frontend (Nginx) | 80 | 8888 (可配置 WEB_PORT) | Web UI 访问 |
 | Backend (FastAPI) | 8080 | - (不暴露) | 仅内部通过 Nginx 代理 |
+
+**Nginx 路由说明：**
+- `/` → 前端静态文件
+- `/api/*` → 后端 API（`http://backend:8080/api/*`）
+- `/webhook/*` → 飞书 Webhook（`http://backend:8080/webhook/*`）
+- `/healthz` → 后端健康检查
 
 ---
 

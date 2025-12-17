@@ -88,27 +88,64 @@ curl http://127.0.0.1:8080/healthz
   ```
   服务会在指定时间依次运行 `python -m src.okr.sync_job` 与 `python -m src.feishu.report_fetch` 的逻辑，无需额外安排定时任务。
 
-## 9. 部署到 Linux 服务器
+## 9. 部署到 Linux 服务器（Docker）
 
-如需部署到 Linux 测试/生产服务器（包含 Web UI），请查看：
+本项目支持使用 Docker 部署到 Linux 服务器，包含完整的 Web UI 管理界面。
 
-**[📖 部署文档](deploy/DEPLOYMENT.md)** - 详细的 Linux 服务器部署指南
+### 快速部署
 
-快速部署命令：
+**[📖 完整部署文档](deploy/DEPLOYMENT.md)** - 详细的部署指南和故障排查
+
 ```bash
-# 1. 克隆代码到服务器
-git clone <your-repo-url> /opt/feishu-hr-translator
-cd /opt/feishu-hr-translator
+# 1. 准备服务器环境（Ubuntu 20.04+ / CentOS 7+）
+# 安装 Docker 和 Docker Compose（如已安装可跳过）
 
-# 2. 配置环境变量
+# 2. 克隆代码到服务器
+git clone <your-repo-url> ~/feishu-hr-translator
+cd ~/feishu-hr-translator
+
+# 3. 配置环境变量
 cp deploy/.env.production .env
-vim .env  # 修改必要的配置
+vim .env  # 必须修改以下配置：
+#   - FEISHU_APP_ID / FEISHU_APP_SECRET（飞书应用凭证）
+#   - FEISHU_DEFAULT_CHAT_ID（默认飞书群 ID）
+#   - DASHSCOPE_API_KEY（阿里云 DashScope API Key）
+#   - JWT_SECRET_KEY（Web UI 登录密钥，建议随机生成）
+#   - DEFAULT_ADMIN_PASSWORD（管理员密码，首次登录后请修改）
 
-# 3. 一键部署
-cd deploy && ./deploy.sh
+# 4. 一键部署（自动构建并启动所有容器）
+cd deploy
+./deploy.sh
 ```
 
-部署后访问 `http://服务器IP` 即可使用 Web UI。
+### 访问 Web UI
+
+部署完成后：
+- **Web UI 地址**：`http://服务器IP:8888`（默认端口 8888，可在 .env 中修改 WEB_PORT）
+- **默认账号**：`admin / admin123`（请登录后立即修改密码）
+
+### 重要提示
+
+1. **环境变量生效**：修改 `.env` 文件后，必须使用以下命令重启容器：
+   ```bash
+   cd ~/feishu-hr-translator/deploy
+   docker-compose -f docker-compose.production.yml down
+   docker-compose -f docker-compose.production.yml up -d
+   ```
+   注意：`docker-compose restart` 不会重新加载 `.env` 文件！
+
+2. **端口配置**：如果端口 8888 被占用，在 `.env` 中修改 `WEB_PORT=其他端口` 并重启容器
+
+3. **数据持久化**：数据库文件保存在 `~/feishu-hr-translator/data/` 目录，请定期备份
+
+4. **自动同步**：配置 `AUTO_SYNC_ENABLED=true` 和 `AUTO_SYNC_TIME=09:30` 可实现每日自动抓取报表并发送飞书消息
+
+### 常见问题
+
+- **容器启动失败**：检查日志 `docker-compose logs backend` 或 `docker-compose logs frontend`
+- **无法访问 Web UI**：检查防火墙是否开放端口，运行 `sudo ufw allow 8888`
+- **登录失败 500 错误**：检查数据库权限 `sudo chown -R 1000:1000 ~/feishu-hr-translator/data/`
+- **飞书消息发送失败**：确认 Nginx 配置了 `/webhook/` 路由，检查 `deploy/nginx.conf`
 
 ---
 如遇问题，可以把终端中的错误信息粘贴给技术同事协助排查。祝使用顺利！

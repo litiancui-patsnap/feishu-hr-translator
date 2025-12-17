@@ -38,11 +38,11 @@
 如果服务器已安装 Docker 和 Git，可以使用一键部署脚本：
 
 ```bash
-# 1. 克隆代码
-git clone <your-repo-url> /opt/feishu-hr-translator
-cd /opt/feishu-hr-translator
+# 1. 克隆代码到用户主目录（推荐）
+git clone <your-repo-url> ~/feishu-hr-translator
+cd ~/feishu-hr-translator
 
-# 2. 配置环境变量
+# 2. 配置环境变量（必须配置在项目根目录的 .env 文件）
 cp deploy/.env.production .env
 vim .env  # 编辑配置文件，填写必要参数
 
@@ -52,7 +52,10 @@ chmod +x deploy.sh
 ./deploy.sh
 ```
 
-部署完成后，访问 `http://服务器IP` 即可使用 Web UI。
+**重要提示**：
+- 环境变量文件必须放在**项目根目录** `~/feishu-hr-translator/.env`
+- 默认端口为 8888（可在 .env 中通过 WEB_PORT 修改）
+- 部署完成后访问 `http://服务器IP:8888` 使用 Web UI
 
 ---
 
@@ -219,15 +222,23 @@ curl http://localhost/healthz
 
 ### 端口配置
 
-默认情况下：
-- **Web UI（Nginx）**: 端口 80
+**默认端口**：
+- **Web UI（Nginx）**: 端口 8888
 - **Backend API**: 通过 Nginx 反向代理，路径 `/api/*`
+- **Webhook 端点**: 通过 Nginx 反向代理，路径 `/webhook/*`
 
-如需修改端口，在 `.env` 中设置：
+**修改端口**：
+
+在项目根目录的 `.env` 文件中设置（注意不是 deploy/.env）：
 
 ```ini
-WEB_PORT=8080  # Web UI 将在 8080 端口提供服务
+WEB_PORT=8888  # 修改为其他端口，如 9000
 ```
+
+**注意事项**：
+- `deploy/.env` 仅用于 docker-compose 变量替换
+- 容器内的环境变量从项目根目录的 `.env` 加载
+- 修改端口后需要重启容器（见下方"环境变量生效方法"）
 
 ### 数据持久化
 
@@ -291,7 +302,7 @@ docker-compose -f deploy/docker-compose.production.yml logs --tail=100
 ### 重启服务
 
 ```bash
-cd /opt/feishu-hr-translator/deploy
+cd ~/feishu-hr-translator/deploy
 
 # 重启所有服务
 docker-compose -f docker-compose.production.yml restart
@@ -299,6 +310,38 @@ docker-compose -f docker-compose.production.yml restart
 # 重启特定服务
 docker-compose -f docker-compose.production.yml restart backend
 docker-compose -f docker-compose.production.yml restart frontend
+```
+
+### ⚠️ 环境变量生效方法（重要）
+
+**问题**：修改 `.env` 文件后，使用 `docker-compose restart` 不会重新加载环境变量！
+
+**原因**：`restart` 命令只重启容器进程，不会重新创建容器，因此不会读取新的 `env_file`。
+
+**正确方法**：
+
+```bash
+cd ~/feishu-hr-translator/deploy
+
+# 方法1：完全停止后重新启动（推荐）
+docker-compose -f docker-compose.production.yml down
+docker-compose -f docker-compose.production.yml up -d
+
+# 方法2：强制重新创建容器
+docker-compose -f docker-compose.production.yml up -d --force-recreate
+
+# 方法3：重新构建并启动
+docker-compose -f docker-compose.production.yml down
+docker-compose -f docker-compose.production.yml build
+docker-compose -f docker-compose.production.yml up -d
+```
+
+**验证环境变量**：
+
+```bash
+# 检查容器内的环境变量
+docker exec feishu-hr-backend env | grep AUTO_SYNC_TIME
+docker exec feishu-hr-backend env | grep WEB_PORT
 ```
 
 ### 停止服务
@@ -384,19 +427,34 @@ docker ps --filter "name=feishu-hr" --format "table {{.Names}}\t{{.Status}}"
 
 ```bash
 # 查看容器日志
-docker-compose -f deploy/docker-compose.production.yml logs
+cd ~/feishu-hr-translator/deploy
+docker-compose -f docker-compose.production.yml logs
 
-# 检查 .env 配置是否正确
-cat .env | grep -E "FEISHU|DASHSCOPE"
+# 检查 .env 配置是否正确（注意是项目根目录的 .env）
+cat ~/feishu-hr-translator/.env | grep -E "FEISHU|DASHSCOPE"
 
 # 检查端口是否被占用
-sudo netstat -tlnp | grep :80
+sudo netstat -tlnp | grep :8888  # 或你配置的端口
 ```
 
-**可能原因**:
-- 端口被占用 → 修改 `.env` 中的 `WEB_PORT`
-- 配置错误 → 检查 `.env` 必填项
-- 镜像构建失败 → 重新构建 `docker-compose build --no-cache`
+**可能原因及解决方法**:
+
+1. **端口被占用** → 修改项目根目录 `.env` 中的 `WEB_PORT`
+2. **配置错误** → 检查 `.env` 必填项
+3. **镜像构建失败** → 重新构建：
+   ```bash
+   docker-compose -f docker-compose.production.yml build --no-cache
+   docker-compose -f docker-compose.production.yml up -d
+   ```
+4. **Docker Compose 缓存问题** → 完全清理后重建：
+   ```bash
+   docker-compose -f docker-compose.production.yml down -v
+   docker rm -f feishu-hr-backend feishu-hr-frontend 2>/dev/null || true
+   docker rmi feishu-hr-translator_backend feishu-hr-translator_frontend 2>/dev/null || true
+   docker builder prune -f
+   docker-compose -f docker-compose.production.yml build --no-cache
+   docker-compose -f docker-compose.production.yml up -d
+   ```
 
 ### 问题 2: 后端 API 无法访问
 
@@ -436,7 +494,50 @@ docker-compose -f deploy/docker-compose.production.yml build --no-cache frontend
 docker-compose -f deploy/docker-compose.production.yml up -d frontend
 ```
 
-### 问题 4: 飞书 Webhook 无法接收
+### 问题 4: Web UI 登录失败（500 错误）
+
+**现象**: 访问登录页面正常，但点击登录后返回 500 错误
+
+**排查步骤**:
+
+```bash
+# 查看后端日志
+docker logs feishu-hr-backend | tail -50
+
+# 检查是否有 SQLAlchemy 相关错误
+docker logs feishu-hr-backend | grep -i "readonly database"
+```
+
+**可能原因及解决方法**:
+
+1. **数据库权限问题**（最常见）：
+   ```bash
+   # 修改 data 目录权限（容器使用 UID 1000）
+   sudo chown -R 1000:1000 ~/feishu-hr-translator/data/
+   chmod -R 755 ~/feishu-hr-translator/data/
+
+   # 重启后端容器
+   docker-compose -f docker-compose.production.yml restart backend
+   ```
+
+2. **缺少依赖**：
+   ```bash
+   # 检查是否缺少 sqlalchemy 等依赖
+   docker exec feishu-hr-backend pip list | grep -E "sqlalchemy|python-jose|email-validator"
+
+   # 如果缺少，重新构建镜像
+   docker-compose -f docker-compose.production.yml build --no-cache backend
+   docker-compose -f docker-compose.production.yml up -d backend
+   ```
+
+3. **数据库文件损坏**：
+   ```bash
+   # 删除旧数据库，重新初始化
+   rm ~/feishu-hr-translator/data/users.db
+   docker-compose -f docker-compose.production.yml restart backend
+   ```
+
+### 问题 5: 飞书 Webhook 无法接收
 
 **现象**: 飞书消息发送后无响应
 
@@ -446,18 +547,108 @@ docker-compose -f deploy/docker-compose.production.yml up -d frontend
 # 检查后端日志中的 Webhook 请求
 docker logs feishu-hr-backend | grep webhook
 
-# 测试 Webhook 端点
-curl -X POST http://服务器IP/api/feishu/webhook \
+# 检查 Nginx 配置是否包含 /webhook/ 路由
+docker exec feishu-hr-frontend cat /etc/nginx/conf.d/default.conf | grep -A 5 webhook
+
+# 手动测试 Webhook 端点
+curl -X POST http://服务器IP:8888/webhook/feishu \
   -H "Content-Type: application/json" \
-  -d '{...}'
+  -d '{"user_id":"test","user_name":"测试","text":"测试内容"}'
 ```
 
-**可能原因**:
-- 飞书配置错误 → 检查 `FEISHU_BOT_VERIFICATION_TOKEN`
-- 服务器防火墙阻挡 → 开放端口
-- APP_BASE_URL 配置错误 → 确保飞书能访问该地址
+**可能原因及解决方法**:
 
-### 问题 5: DashScope API 调用失败
+1. **Nginx 配置缺少 webhook 路由**：
+   ```bash
+   # 检查 deploy/nginx.conf 是否包含以下配置
+   cat deploy/nginx.conf | grep -A 8 "location /webhook/"
+
+   # 应该有类似以下内容：
+   # location /webhook/ {
+   #     proxy_pass http://backend:8080/webhook/;
+   #     ...
+   # }
+
+   # 如果没有，更新配置并重建前端
+   docker-compose -f docker-compose.production.yml build --no-cache frontend
+   docker-compose -f docker-compose.production.yml up -d frontend
+   ```
+
+2. **飞书配置错误** → 检查 `FEISHU_BOT_VERIFICATION_TOKEN`
+3. **服务器防火墙阻挡** → 开放端口 `sudo ufw allow 8888`
+4. **URL 配置错误** → 确保飞书机器人的回调地址是 `http://服务器IP:8888/webhook/feishu`
+
+### 问题 6: 环境变量修改后不生效
+
+**现象**: 修改 `.env` 文件后，使用 `docker-compose restart` 重启容器，但配置仍然是旧值
+
+**原因**: `docker-compose restart` 只重启进程，不会重新加载 `env_file`
+
+**正确方法**:
+
+```bash
+cd ~/feishu-hr-translator/deploy
+
+# 必须先 down 再 up，或使用 --force-recreate
+docker-compose -f docker-compose.production.yml down
+docker-compose -f docker-compose.production.yml up -d
+
+# 或者
+docker-compose -f docker-compose.production.yml up -d --force-recreate
+```
+
+**验证**:
+
+```bash
+# 检查容器内实际的环境变量值
+docker exec feishu-hr-backend env | grep AUTO_SYNC_TIME
+```
+
+### 问题 7: 前端 API 连接失败
+
+**现象**: 浏览器控制台显示 API 请求失败（如 `ERR_CONNECTION_REFUSED`）
+
+**排查步骤**:
+
+```bash
+# 检查前端的 API_BASE_URL 配置
+docker exec feishu-hr-frontend cat /usr/share/nginx/html/assets/*.js | grep -o 'localhost:8080' | head -1
+```
+
+**可能原因及解决方法**:
+
+1. **生产模式下使用了 localhost**（已在实际部署中修复）：
+   - 检查 `frontend/src/api/client.ts` 是否使用空字符串作为生产环境的 API_BASE_URL
+   - 重新构建前端镜像
+
+2. **Nginx 代理配置错误**：
+   ```bash
+   # 检查 nginx.conf 是否正确配置了 /api/ 代理
+   docker exec feishu-hr-frontend cat /etc/nginx/conf.d/default.conf
+   ```
+
+### 问题 8: 容器健康检查失败
+
+**现象**: `docker ps` 显示容器状态为 `unhealthy` 或 `starting`
+
+**排查步骤**:
+
+```bash
+# 查看健康检查日志
+docker inspect feishu-hr-backend | grep -A 20 Health
+docker inspect feishu-hr-frontend | grep -A 20 Health
+
+# 手动测试健康检查端点
+docker exec feishu-hr-backend curl -f http://localhost:8080/healthz
+docker exec feishu-hr-frontend wget -q -O - http://127.0.0.1/health
+```
+
+**解决方法**:
+
+- Frontend 健康检查使用 `127.0.0.1` 而不是 `localhost`（Alpine 容器网络问题）
+- 如果持续失败，检查服务是否正常启动
+
+### 问题 9: DashScope API 调用失败
 
 **现象**: 日志显示 "(离线模式)" 或 API 超时
 
