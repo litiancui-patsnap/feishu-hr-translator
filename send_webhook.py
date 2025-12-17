@@ -11,7 +11,7 @@ def main() -> None:
     }
     with httpx.Client(timeout=10.0, trust_env=False) as client:
         resp = client.post(
-            "http://127.0.0.1:8080/webhook/feishu",
+            "http://192.168.106.97:8888/webhook/feishu",  # Docker 部署地址
             json=payload,
         )
     print(resp.status_code)

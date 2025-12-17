@@ -50,3 +50,14 @@ secrets/
 *.pfx
 *.cer
 
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Database
+data/
+
+# Temporary files
+nul
+

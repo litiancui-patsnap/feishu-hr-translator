@@ -1,0 +1,27 @@
+# Feishu HR Translator - Web UI Requirements
+# Additional dependencies for web interface
+
+# Original dependencies (from requirements.txt)
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+httpx>=0.24.0
+jinja2>=3.1.0
+python-dotenv>=1.0.0
+
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.12.0  # For database migrations
+
+# Authentication
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
+python-multipart>=0.0.6
+
+# Optional: PostgreSQL support (uncomment if using PostgreSQL)
+# psycopg2-binary>=2.9.9
+
+# Development tools
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

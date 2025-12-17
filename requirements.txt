@@ -6,3 +6,6 @@ pydantic-settings
 python-dotenv
 jinja2
 pytest
+sqlalchemy
+python-jose[cryptography]
+email-validator

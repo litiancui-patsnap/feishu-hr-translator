@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  llm-translator:
+    build:
+      context: ..
+      dockerfile: mcp_servers/Dockerfile
+    container_name: mcp-llm-translator
+    environment:
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - QWEN_MODEL=${QWEN_MODEL:-qwen-plus}
+      - QWEN_API_MODE=${QWEN_API_MODE:-text}
+      - REQUEST_TIMEOUT_SECONDS=${REQUEST_TIMEOUT_SECONDS:-30}
+    volumes:
+      # 挂载源代码（开发模式）
+      - ../src:/app/src:ro
+      # 挂载配置文件
+      - ./mcp_config.json:/app/mcp_config.json:ro
+    restart: unless-stopped
+    # 端口映射（如果作为 HTTP 服务运行）
+    # ports:
+    #   - "8000:8000"
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "python", "-c", "import llm_translator; print('OK')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

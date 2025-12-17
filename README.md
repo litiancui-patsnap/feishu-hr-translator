@@ -79,14 +79,36 @@ curl http://127.0.0.1:8080/healthz
 ## 8. 进一步设置（选做）
 - **改用 Google Sheet 或多维表格保存**：在 `.env` 中把 `STORAGE_DRIVER` 改为 `sheet` 或 `bitable`，并补全对应凭证即可。
 - **同步企业 OKR**：配置 `FEISHU_TENANT_APP_ID`、`FEISHU_OKR_IDS` 等参数后，运行 `python -m src.okr.sync_job` 可以自动更新 OKR 缓存。
-- **自动每日对齐**：如需每天定时用最新 OKR 分析并推送卡片，在 `.env` 中开启  
+- **自动每日对齐**：如需每天定时用最新 OKR 分析并推送卡片，在 `.env` 中开启
   ```ini
   AUTO_SYNC_ENABLED=true
   AUTO_SYNC_TIME=02:00            # 每天触发时间，24 小时制
   AUTO_SYNC_LOOKBACK_HOURS=24     # 抓取最近几小时提交的报表
   AUTO_SYNC_RUN_ON_START=true     #（可选）启动应用后立即执行一次
-  ```  
+  ```
   服务会在指定时间依次运行 `python -m src.okr.sync_job` 与 `python -m src.feishu.report_fetch` 的逻辑，无需额外安排定时任务。
+
+## 9. 部署到 Linux 服务器
+
+如需部署到 Linux 测试/生产服务器（包含 Web UI），请查看：
+
+**[📖 部署文档](deploy/DEPLOYMENT.md)** - 详细的 Linux 服务器部署指南
+
+快速部署命令：
+```bash
+# 1. 克隆代码到服务器
+git clone <your-repo-url> /opt/feishu-hr-translator
+cd /opt/feishu-hr-translator
+
+# 2. 配置环境变量
+cp deploy/.env.production .env
+vim .env  # 修改必要的配置
+
+# 3. 一键部署
+cd deploy && ./deploy.sh
+```
+
+部署后访问 `http://服务器IP` 即可使用 Web UI。
 
 ---
 如遇问题，可以把终端中的错误信息粘贴给技术同事协助排查。祝使用顺利！
