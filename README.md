@@ -61,7 +61,7 @@ curl http://127.0.0.1:8080/healthz
 ## 6. 日常使用
 1. 保持服务运行状态。
 2. 把机器人加入需要汇报的飞书群。
-3. 员工按日或周在群里发送日报内容，或通过自动化流程触发 Webhook。
+3. 员工按日或周在飞书工作台发送汇报内容，通过自动化流程触发 Webhook。
 ```powershell
 .\.venv\Scripts\python.exe -m src.feishu.report_fetch --start 2025-10-28 --end 2025-10-28
 ```
