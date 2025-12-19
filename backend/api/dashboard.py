@@ -3,7 +3,7 @@ Dashboard API endpoints.
 """
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends
 from fastapi import HTTPException
@@ -182,12 +182,12 @@ async def get_report_timeline(
 async def get_reports_list(
     page: int = 1,
     page_size: int = 20,
-    risk_level: str = None,
-    period_type: str = None,
-    user_name: str = None,
-    search: str = None,
-    start_date: str = None,
-    end_date: str = None,
+    risk_level: Optional[str] = None,
+    period_type: Optional[str] = None,
+    user_name: Optional[str] = None,
+    search: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     _current_user: User = Depends(get_current_user),
 ):
     """
@@ -224,12 +224,12 @@ async def get_reports_list(
 
 @router.get("/reports/export")
 async def export_reports(
-    risk_level: str = None,
-    period_type: str = None,
-    user_name: str = None,
-    search: str = None,
-    start_date: str = None,
-    end_date: str = None,
+    risk_level: Optional[str] = None,
+    period_type: Optional[str] = None,
+    user_name: Optional[str] = None,
+    search: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     _current_user: User = Depends(get_current_user),
 ):
     """
