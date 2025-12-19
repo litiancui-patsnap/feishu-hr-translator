@@ -68,7 +68,7 @@ export default function ReportDetailPage() {
   const handleExportCSV = async () => {
     if (!id) return
     try {
-      const url = `http://localhost:8080/api/dashboard/reports/${id}/export`
+      const url = `/api/dashboard/reports/${id}/export`
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
       await downloadExportFile(url, `report_${id}_${timestamp}.csv`)
       message.success('导出成功')

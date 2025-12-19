@@ -108,7 +108,7 @@ export default function ReportsListPage() {
       if (dateRange?.[0]) params.append('start_date', dateRange[0].format('YYYY-MM-DD'))
       if (dateRange?.[1]) params.append('end_date', dateRange[1].format('YYYY-MM-DD'))
 
-      const url = `http://localhost:8080/api/dashboard/reports/export?${params.toString()}`
+      const url = `/api/dashboard/reports/export?${params.toString()}`
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
       await downloadExportFile(url, `reports_export_${timestamp}.csv`)
       message.success('导出成功')
