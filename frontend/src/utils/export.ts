@@ -139,7 +139,7 @@ export const exportReportDetailToExcel = (report: ReportDetail, filename?: strin
  */
 export const downloadExportFile = async (url: string, filename: string) => {
   try {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('access_token')
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${token}`,
