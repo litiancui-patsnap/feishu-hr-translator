@@ -58,9 +58,35 @@ const url = `/api/dashboard/reports/${id}/export`
 
 ## 📝 修改的文件
 
-### 1. [frontend/src/pages/ReportDetailPage.tsx](frontend/src/pages/ReportDetailPage.tsx)
+### 1. [frontend/src/utils/export.ts](frontend/src/utils/export.ts)
 
-**位置**: 第 68-79 行
+**位置**: 第 142 行
+
+**问题**: Token 键名不一致导致 401 Unauthorized 错误
+
+**修改前**:
+```typescript
+const token = localStorage.getItem('token')
+```
+
+**修改后**:
+```typescript
+const token = localStorage.getItem('access_token')
+```
+
+**说明**:
+- 系统其他地方使用 `access_token` 作为 localStorage 键名
+- 导出函数错误地使用了 `token`
+- 导致获取到 `null`，Authorization header 为 `Bearer null`
+- 后端返回 401 Unauthorized
+
+---
+
+### 2. [frontend/src/pages/ReportDetailPage.tsx](frontend/src/pages/ReportDetailPage.tsx)
+
+**位置**: 第 71 行
+
+**问题**: 硬编码 localhost:8080 导致跨域错误
 
 **修改前**:
 ```typescript
@@ -96,9 +122,11 @@ const handleExportCSV = async () => {
 
 ---
 
-### 2. [frontend/src/pages/ReportsListPage.tsx](frontend/src/pages/ReportsListPage.tsx)
+### 3. [frontend/src/pages/ReportsListPage.tsx](frontend/src/pages/ReportsListPage.tsx)
 
-**位置**: 第 101-119 行
+**位置**: 第 111 行
+
+**问题**: 硬编码 localhost:8080 导致跨域错误
 
 **修改前**:
 ```typescript
