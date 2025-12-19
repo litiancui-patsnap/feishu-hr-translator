@@ -94,134 +94,6 @@ async def get_risk_distribution(
         return RiskDistribution(low=0, medium=0, high=0)
 
 
-@router.get("/reports/{report_id}", response_model=ReportDetail)
-async def get_report_detail(
-    report_id: int,
-    _current_user: User = Depends(get_current_user),
-):
-    """
-    Get full details of a specific report.
-
-    Args:
-        report_id: The report ID
-
-    Returns:
-        Full report details including raw text, AI summary, risks, OKR info, etc.
-    """
-    report = report_stats.get_report_by_id(report_id)
-
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
-
-    # Map CSV fields to API schema
-    return ReportDetail(
-        id=report["id"],
-        user_id=report.get("user_id", ""),
-        user_name=report.get("user_name", "Unknown"),
-        period_type=report.get("period_type", "daily"),
-        period_start=report.get("period_start", ""),
-        period_end=report.get("period_end", ""),
-        created_at=report.get("message_ts", ""),
-        raw_text=report.get("raw_text", ""),
-        hr_summary=report.get("hr_summary", ""),
-        risk_level=report.get("risk_level", "low"),
-        risks=report.get("risks"),
-        needs=report.get("needs"),
-        hit_objectives=report.get("hit_objectives"),
-        hit_krs=report.get("hit_krs"),
-        okr_gaps=report.get("okr_gaps"),
-        okr_confidence=report.get("okr_confidence"),
-        next_actions=report.get("next_actions"),
-        okr_brief=report.get("okr_brief"),
-    )
-
-
-@router.get("/okr-trend")
-async def get_okr_trend(
-    days: int = 30,
-    _current_user: User = Depends(get_current_user),
-):
-    """
-    Get OKR completion trend data for charts.
-
-    Args:
-        days: Number of days to look back (default 30)
-
-    Returns:
-        List of daily OKR completion data points
-    """
-    try:
-        trend_data = report_stats.get_okr_trend_data(days=days)
-        return trend_data
-    except Exception:
-        return []
-
-
-@router.get("/report-timeline")
-async def get_report_timeline(
-    days: int = 30,
-    _current_user: User = Depends(get_current_user),
-):
-    """
-    Get report submission timeline data for charts.
-
-    Args:
-        days: Number of days to look back (default 30)
-
-    Returns:
-        List of daily report submission counts
-    """
-    try:
-        timeline_data = report_stats.get_report_timeline_data(days=days)
-        return timeline_data
-    except Exception:
-        return []
-
-
-@router.get("/reports")
-async def get_reports_list(
-    page: int = 1,
-    page_size: int = 20,
-    risk_level: Optional[str] = None,
-    period_type: Optional[str] = None,
-    user_name: Optional[str] = None,
-    search: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    _current_user: User = Depends(get_current_user),
-):
-    """
-    Get paginated and filtered list of reports.
-
-    Args:
-        page: Page number (default 1)
-        page_size: Items per page (default 20)
-        risk_level: Filter by risk level (low, medium, high)
-        period_type: Filter by period type (daily, weekly, monthly)
-        user_name: Filter by user name
-        search: Search keyword
-        start_date: Start date (YYYY-MM-DD)
-        end_date: End date (YYYY-MM-DD)
-
-    Returns:
-        Paginated list of reports with total count
-    """
-    try:
-        result = report_stats.get_reports_list(
-            page=page,
-            page_size=page_size,
-            risk_level=risk_level,
-            period_type=period_type,
-            user_name=user_name,
-            search=search,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        return result
-    except Exception as e:
-        return {"total": 0, "page": page, "page_size": page_size, "total_pages": 0, "items": []}
-
-
 @router.get("/reports/export")
 async def export_reports(
     risk_level: Optional[str] = None,
@@ -415,6 +287,134 @@ async def export_report_detail(
             "Content-Disposition": f'attachment; filename="{filename}"'
         }
     )
+
+
+@router.get("/reports/{report_id}", response_model=ReportDetail)
+async def get_report_detail(
+    report_id: int,
+    _current_user: User = Depends(get_current_user),
+):
+    """
+    Get full details of a specific report.
+
+    Args:
+        report_id: The report ID
+
+    Returns:
+        Full report details including raw text, AI summary, risks, OKR info, etc.
+    """
+    report = report_stats.get_report_by_id(report_id)
+
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # Map CSV fields to API schema
+    return ReportDetail(
+        id=report["id"],
+        user_id=report.get("user_id", ""),
+        user_name=report.get("user_name", "Unknown"),
+        period_type=report.get("period_type", "daily"),
+        period_start=report.get("period_start", ""),
+        period_end=report.get("period_end", ""),
+        created_at=report.get("message_ts", ""),
+        raw_text=report.get("raw_text", ""),
+        hr_summary=report.get("hr_summary", ""),
+        risk_level=report.get("risk_level", "low"),
+        risks=report.get("risks"),
+        needs=report.get("needs"),
+        hit_objectives=report.get("hit_objectives"),
+        hit_krs=report.get("hit_krs"),
+        okr_gaps=report.get("okr_gaps"),
+        okr_confidence=report.get("okr_confidence"),
+        next_actions=report.get("next_actions"),
+        okr_brief=report.get("okr_brief"),
+    )
+
+
+@router.get("/okr-trend")
+async def get_okr_trend(
+    days: int = 30,
+    _current_user: User = Depends(get_current_user),
+):
+    """
+    Get OKR completion trend data for charts.
+
+    Args:
+        days: Number of days to look back (default 30)
+
+    Returns:
+        List of daily OKR completion data points
+    """
+    try:
+        trend_data = report_stats.get_okr_trend_data(days=days)
+        return trend_data
+    except Exception:
+        return []
+
+
+@router.get("/report-timeline")
+async def get_report_timeline(
+    days: int = 30,
+    _current_user: User = Depends(get_current_user),
+):
+    """
+    Get report submission timeline data for charts.
+
+    Args:
+        days: Number of days to look back (default 30)
+
+    Returns:
+        List of daily report submission counts
+    """
+    try:
+        timeline_data = report_stats.get_report_timeline_data(days=days)
+        return timeline_data
+    except Exception:
+        return []
+
+
+@router.get("/reports")
+async def get_reports_list(
+    page: int = 1,
+    page_size: int = 20,
+    risk_level: Optional[str] = None,
+    period_type: Optional[str] = None,
+    user_name: Optional[str] = None,
+    search: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    _current_user: User = Depends(get_current_user),
+):
+    """
+    Get paginated and filtered list of reports.
+
+    Args:
+        page: Page number (default 1)
+        page_size: Items per page (default 20)
+        risk_level: Filter by risk level (low, medium, high)
+        period_type: Filter by period type (daily, weekly, monthly)
+        user_name: Filter by user name
+        search: Search keyword
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+
+    Returns:
+        Paginated list of reports with total count
+    """
+    try:
+        result = report_stats.get_reports_list(
+            page=page,
+            page_size=page_size,
+            risk_level=risk_level,
+            period_type=period_type,
+            user_name=user_name,
+            search=search,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        return result
+    except Exception as e:
+        return {"total": 0, "page": page, "page_size": page_size, "total_pages": 0, "items": []}
 
 
 @router.get("/analytics/user-submissions")

@@ -268,6 +268,81 @@ export const downloadExportFile = async (url: string, filename: string) => {
 - [Vite 配置文件](frontend/vite.config.ts)
 - [部署文档](deploy/DEPLOYMENT.md)
 
+## 📝 修改的文件（续）
+
+### 4. [backend/api/dashboard.py](backend/api/dashboard.py) - 路由顺序修复
+
+**问题**: 报告列表 CSV 导出仍然返回 422 错误
+
+**错误详情**:
+```json
+{
+    "detail": [{
+        "type": "int_parsing",
+        "loc": ["path", "report_id"],
+        "msg": "Input should be a valid integer, unable to parse string as an integer",
+        "input": "export"
+    }]
+}
+```
+
+**根本原因**: FastAPI 路由匹配是**按定义顺序**进行的。原始路由定义顺序：
+```python
+# ❌ 错误的顺序
+Line 97:  @router.get("/reports/{report_id}")          # 泛型路由，会匹配 /reports/export
+Line 376: @router.get("/reports")
+Line 420: @router.get("/reports/export")               # 永远不会被匹配到
+Line 513: @router.get("/reports/{report_id}/export")   # 永远不会被匹配到
+```
+
+当请求 `/reports/export` 时，FastAPI 首先匹配到 `/reports/{report_id}`，将 "export" 作为 `report_id` 参数。由于 `report_id: int`，Pydantic 验证器尝试将字符串 "export" 转换为整数，失败并返回 422 错误。
+
+**修复方案**: 将具体路由移到泛型路由**之前**
+
+**修复后的顺序**:
+```python
+# ✅ 正确的顺序
+Line 97:  @router.get("/reports/export")               # 最具体，优先匹配
+Line 190: @router.get("/reports/{report_id}/export")   # 次具体
+Line 292: @router.get("/reports/{report_id}")          # 泛型路由，最后匹配
+Line 376: @router.get("/reports")                      # 基础路由
+```
+
+**FastAPI 路由匹配规则**:
+1. 路由按定义顺序匹配
+2. 具体路径（如 `/reports/export`）必须在参数化路径（如 `/reports/{report_id}`）之前
+3. 一旦匹配成功，不再继续匹配后续路由
+
+**修改内容**:
+- 将 `/reports/export` 端点（原 line 420-510）移到 line 97
+- 将 `/reports/{report_id}/export` 端点（原 line 513-617）移到 line 190
+- 删除原位置的重复定义
+
+---
+
+## 🎓 经验总结（续）
+
+### FastAPI 路由最佳实践
+
+**路由定义顺序规则**:
+1. ✅ **静态路由优先**: `/reports/export` 在前
+2. ✅ **动态路由靠后**: `/reports/{report_id}` 在后
+3. ✅ **从具体到泛型**: 路径段越多越具体，越靠前
+
+**错误示例**:
+```python
+# ❌ 错误：泛型路由在前
+@router.get("/users/{user_id}")
+@router.get("/users/me")  # 永远不会匹配，因为 "me" 被当作 user_id
+```
+
+**正确示例**:
+```python
+# ✅ 正确：具体路由在前
+@router.get("/users/me")
+@router.get("/users/{user_id}")
+```
+
 ---
 
 **修复完成时间**: 2025-12-19
@@ -275,3 +350,9 @@ export const downloadExportFile = async (url: string, filename: string) => {
 **修复人员**: Claude Code AI Assistant
 
 **测试状态**: ✅ 待用户验证
+
+**已修复的问题**:
+1. ✅ CORS 跨域错误 (硬编码 localhost)
+2. ✅ 401 未授权错误 (token 键名不一致)
+3. ✅ 422 参数验证错误 (缺少 Optional 类型提示)
+4. ✅ 422 路由匹配错误 (路由定义顺序不正确)
