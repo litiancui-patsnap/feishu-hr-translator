@@ -56,6 +56,57 @@ def _sample_report() -> ReportIn:
     )
 
 
+def test_rendered_prompt_requires_faithful_boss_friendly_summary():
+    now = datetime.utcnow()
+    report = ReportIn(
+        user_id="u_1",
+        user_name="李田翠",
+        period_type="weekly",
+        period_start=now.date(),
+        period_end=now.date(),
+        raw_text=(
+            "本周主要完成了 guanzhao-ip-agent V1 验收闭环和交底交接能力的收尾工作。\n"
+            "项目在 V1 可交付性上进一步增强：主流程可以通过脚本跑通；"
+            "Compose 环境更稳定；登录 / CORS 问题已修复；交底导出链路更完整；"
+            "审核后附件边界更安全；本地和 CI 验证均通过。\n"
+            "下周工作计划：梳理 V1 已完成能力和后续功能缺口，围绕当前 main 分支继续整理："
+            "仍是 fixture / provider placeholder 的部分；前端页面中还不够业务化的展示；"
+            "后台任务、审计、导出相关的缺口；与 AGENTS.md、ROADMAP、V2_PRODUCT_DESIGN.md 的差距。"
+        ),
+        message_ts=now,
+    )
+    qwen = QwenClient(api_key="test", model="qwen-test")
+
+    system_prompt, user_prompt = qwen._render_prompts(report, "O1：AI辅助养老系统可交付")
+
+    assert "不做战略扩写" in system_prompt
+    assert "只能使用【报告文本】和【该人员OKR】中明确出现的信息" in user_prompt
+    assert "不得凭经验添加“多平台适配、复杂工单处理、客户反馈”" in user_prompt
+    assert "fixture/provider placeholder" in user_prompt
+    assert "交底导出链路更完整" in user_prompt
+
+
+def test_rendered_prompt_keeps_daily_report_narrow():
+    now = datetime.utcnow()
+    report = ReportIn(
+        user_id="u_2",
+        user_name="张三",
+        period_type="daily",
+        period_start=now.date(),
+        period_end=now.date(),
+        raw_text="今日修复登录 / CORS 问题，明日继续补充导出校验。",
+        message_ts=now,
+    )
+    qwen = QwenClient(api_key="test", model="qwen-test")
+
+    _, user_prompt = qwen._render_prompts(report, "O1：提升系统可交付质量")
+
+    assert "对于日报，输出应更短" in user_prompt
+    assert "不要把单日进展扩写成阶段性成果、长期目标或团队级结论" in user_prompt
+    assert "今日修复登录 / CORS 问题" in user_prompt
+    assert "明日继续补充导出校验" in user_prompt
+
+
 @pytest.mark.anyio("asyncio")
 async def test_qwen_parses_valid_response():
     payload = {"output": {"text": json.dumps(_hr_extract_payload(), ensure_ascii=False)}}
